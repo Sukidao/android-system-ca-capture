@@ -3,4 +3,5 @@
 update-binary text eol=lf
 *.md text eol=lf
 *.prop text eol=lf
+*.0 -text
 

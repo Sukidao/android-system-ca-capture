@@ -1,6 +1,6 @@
 id=hc_cacert
-name=HttpCanary System CA
-version=v1.0
-versionCode=1
+name=System CA for Capture
+version=v1.1
+versionCode=2
 author=local
-description=把 HttpCanary 根证书(87bc3517.0)挂载进系统证书库(/apex/com.android.conscrypt/cacerts 与 /system/etc/security/cacerts)，供 HTTPS 抓包使用。失败时脚本自动放弃挂载。
+description=把 certs/ 目录下的根证书合并进系统证书库(/apex/com.android.conscrypt/cacerts 与 /system/etc/security/cacerts)并 bind mount，供 HTTPS 抓包使用。开机早期挂载，失败时自动放弃，不会破坏系统 TLS。

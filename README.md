@@ -33,6 +33,15 @@ Android 14+（含 Android 15/16/17）把抓包工具的根证书装进**系统**
 
 ---
 
+## 下载
+
+见 [Releases](https://github.com/Sukidao/android-system-ca-capture/releases)：
+
+| 文件 | 说明 |
+|---|---|
+| `hc_cacert.zip` | 模块包（KernelSU / Magisk），已内置一张 HttpCanary 根证书，可直接刷 |
+| `HttpCanary-3.3.6.apk` | 抓包工具安装包；**第三方软件**，版权归原作者所有，此处仅作存档，如有侵权请联系删除 |
+
 ## 快速开始
 
 ```sh

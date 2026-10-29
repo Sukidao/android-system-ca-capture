@@ -1,0 +1,53 @@
+#!/sbin/sh
+# 兼容 Magisk / KernelSU 的模块安装脚本
+umask 022
+
+OUTFD=$2
+ZIPFILE=$3
+MODID=hc_cacert
+
+ui_print() { echo "$1"; }
+
+# ---- Magisk 路径：有 util_functions.sh 就交给官方安装器 ----
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+  if [ -n "$MAGISK_VER_CODE" ] && [ "$MAGISK_VER_CODE" -ge 20400 ]; then
+    install_module
+    exit 0
+  fi
+fi
+
+# ---- 回退路径（KernelSU / APatch / 无 Magisk 环境）：直接解包到模块目录 ----
+ui_print "- 手动安装 $MODID"
+
+TARGET=/data/adb/modules/$MODID
+TMP=/data/local/tmp/${MODID}_install
+rm -rf "$TMP" "$TARGET"
+mkdir -p "$TMP" "$TARGET"
+cd "$TMP" || exit 1
+
+if command -v unzip >/dev/null 2>&1; then
+  unzip -o "$ZIPFILE" -x 'META-INF/*' >/dev/null 2>&1
+elif [ -x /data/adb/ksu/bin/busybox ]; then
+  /data/adb/ksu/bin/busybox unzip -o "$ZIPFILE" -x 'META-INF/*' >/dev/null 2>&1
+elif command -v busybox >/dev/null 2>&1; then
+  busybox unzip -o "$ZIPFILE" -x 'META-INF/*' >/dev/null 2>&1
+else
+  ui_print "! 找不到 unzip，安装失败"
+  exit 1
+fi
+
+if [ ! -f "$TMP/module.prop" ]; then
+  ui_print "! 解包失败"
+  exit 1
+fi
+
+cp -rf "$TMP"/. "$TARGET"/
+chown -R 0:0 "$TARGET"
+chmod 755 "$TARGET"/*.sh 2>/dev/null
+chmod 644 "$TARGET"/module.prop 2>/dev/null
+chmod 644 "$TARGET"/certs/* 2>/dev/null
+rm -rf "$TMP"
+
+ui_print "- 安装完成，重启后生效"
+exit 0

@@ -106,6 +106,15 @@ tools/
 | `nsenter` | 设备上多为 toybox 版，`mount` 前必须加 `--`，否则报 `Unknown option 'bind'` |
 | 不要混用 | 证书模块与「返回空链」的 Xposed 模块不要同时作用于同一 App，尤其浏览器/微信 |
 
+### 已知限制：native pinning（抖音这类 App）
+
+系统证书只解决「信任」。有些 App（如抖音）在 `libttboringssl.so` / `libsscronet.so` 里做 native 证书校验，
+并且在发现"证书链与预期不符"时**主动 `BRK` 崩溃**（`SIGTRAP / TRAP_BRKPT`，进安全模式 → 断网 + 闪退）。
+实测结论：**这类 App 放弃抓包**，把 Xposed 类模块也移出它的作用域，其余 App 不受影响。
+
+- 完整证据与能力边界表：[docs 第九节](docs/微信抓包证书问题_排查与解决.md)
+- 失败实验存档（Zygisk native hook 代码，勿直接刷）：[experiments/zygisk-native-hook](experiments/zygisk-native-hook)
+
 ### 抓不到的部分
 
 微信自有通信是 MMTLS / mars native 栈（大量 `http://xxx.weixin.qq.com/mmtls/...`），属于应用层加密，

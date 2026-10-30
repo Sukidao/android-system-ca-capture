@@ -1,0 +1,6 @@
+id=zz_pinskip
+name=PinSkip (native unpinning)
+version=v1.0
+versionCode=1
+author=local
+description=Zygisk 模块：在目标进程内劫持 BoringSSL 的 SSL_CTX_set_custom_verify / SSL_CTX_set_verify / X509_VERIFY_PARAM_set1_host 等调用，关闭 native 层证书校验（pinning）。当前仅对 com.ss.android.ugc.aweme 生效，其它进程不做任何事。

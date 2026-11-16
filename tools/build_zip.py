@@ -16,6 +16,8 @@ FIXED = [
     "module.prop",
     "post-fs-data.sh",
     "service.sh",
+    "sync_ca.sh",
+    "action.sh",
     "META-INF/com/google/android/update-binary",
     "META-INF/com/google/android/updater-script",
 ]
@@ -44,7 +46,14 @@ def main() -> int:
 
     with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as z:
         for rel in entries:
-            z.write(os.path.join(MODULE_DIR, rel.replace("/", os.sep)), rel)
+            src = os.path.join(MODULE_DIR, rel.replace("/", os.sep))
+            # .sh 与 update-binary 需要可执行位，否则部分管理器解包后无法运行
+            mode = 0o755 if (rel.endswith(".sh") or rel.endswith("update-binary")) else 0o644
+            info = zipfile.ZipInfo(rel)
+            info.external_attr = (0o100000 | mode) << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            with open(src, "rb") as f:
+                z.writestr(info, f.read())
 
     print("built %s (%d bytes, %d files)" % (args.output, os.path.getsize(args.output), len(entries)))
     print("刷入: KernelSU / Magisk 管理器 -> 模块 -> 从本地安装 -> 重启")

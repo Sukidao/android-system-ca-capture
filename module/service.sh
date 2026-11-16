@@ -70,5 +70,15 @@ for d in /proc/[0-9]*; do
     nsenter -t "$p" -m -- mount --bind "$WORK" "$APEX" 2>/dev/null && echo "nsenter mount pid=$p" >> "$LOG"
 done
 
+# 3) 等用户数据解锁后，同步 HttpCanary 当前的根证书
+#    （HttpCanary 重置/清数据会重新生成 CA，文件名哈希不变但内容变了，
+#     只靠 post-fs-data 拷 certs/ 里的旧证书会导致抓包失效）
+i=0
+while [ $i -lt 60 ] && [ ! -f /data/data/com.guoshi.httpcanary/files/backup/HttpCanary.pem ]; do
+    sleep 2
+    i=$((i + 1))
+done
+[ -f "$MODDIR/sync_ca.sh" ] && sh "$MODDIR/sync_ca.sh"
+
 echo "done: apex=$(ls "$APEX" 2>/dev/null | wc -l) sys=$(ls "$SYS" 2>/dev/null | wc -l)" >> "$LOG"
 exit 0

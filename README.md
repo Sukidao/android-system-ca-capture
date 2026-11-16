@@ -31,6 +31,11 @@ Android 14+（含 Android 15/16/17）把抓包工具的根证书装进**系统**
 本模块在 `post-fs-data`（zygote 启动前）把「系统证书 + 你的证书」合并后 bind mount 到两个证书库路径，
 所有应用进程启动时自然继承；`service.sh` 在 late_start 再兜底一次，并对已运行的应用进程用 `nsenter` 补挂。
 
+**v1.2 起自动同步**：抓包工具重置根证书后会重新生成 CA —— CN 不变，所以 `subject_hash_old` 不变、
+文件名和证书数量都不变，**只有内容变了**，靠"看数量"完全发现不了。模块因此在解锁后比对
+抓包工具当前的 CA 与挂载源，不一致就立即覆盖并重新 bind mount，同时回写 `certs/`，让下次开机直接正确。
+也可以进 KernelSU 模块页点「执行」手动触发（见 `module/action.sh`）。
+
 ---
 
 ## 下载
@@ -65,12 +70,20 @@ python tools/build_zip.py                                  # 输出 hc_cacert.zi
 su -c 'ls /apex/com.android.conscrypt/cacerts | wc -l'
 su -c 'ls /system/etc/security/cacerts | wc -l'
 
+# 证书内容是否真的对得上（数量对不代表内容对）
+sh tools/certdiff.sh <设备地址>
+# system : 79:26:2B:...:12:91
+# canary : 79:26:2B:...:12:91
+# SAME
+
 # 开机日志
 su -c 'cat /data/local/tmp/hc_cacert.log'
 # === post-fs-data ===
 # src=/apex/com.android.conscrypt/cacerts base=145 certs=1 new=146
 # mounted /apex/com.android.conscrypt/cacerts -> 146
 # mounted /system/etc/security/cacerts -> 146
+# --- service.sh ---
+# 11-17 03:17:10 sync: 已更新 <hash>.0，生效路径 2/2
 ```
 
 抓包工具开抓后，目标 App 的 HTTPS 应能直接出明文。
@@ -83,14 +96,37 @@ su -c 'cat /data/local/tmp/hc_cacert.log'
 module/
 ├── module.prop                     # 模块元信息
 ├── post-fs-data.sh                 # 开机早期合并证书 + bind mount（带数量校验，失败不挂载）
-├── service.sh                      # late_start 兜底 + 对已运行进程 nsenter 补挂
+├── service.sh                      # late_start 兜底 + 对已运行进程 nsenter 补挂 + 调 sync_ca.sh
+├── sync_ca.sh                      # 解锁后自动同步抓包工具当前 CA（重置证书后重启即自愈）
+├── action.sh                       # KernelSU 模块卡片「执行」按钮：手动同步 + 重启相关应用
 ├── certs/                          # 你的根证书：<subject_hash_old>.0（PEM）
 └── META-INF/com/google/android/    # 安装脚本（Magisk 走官方 install_module，无 Magisk 环境自动解包回退）
 docs/
 └── 微信抓包证书问题_排查与解决.md      # 完整排查/原理/验证记录
 tools/
-└── build_zip.py                    # 打包脚本
+├── build_zip.py                    # 打包脚本
+└── certdiff.sh                     # PC 侧只读自检：系统库证书与抓包工具当前 CA 是否一致
 ```
+
+---
+
+## 证书被重置了怎么办
+
+抓包工具（HttpCanary / Reqable 等）重置或清除数据后会重新生成 CA，此时：
+
+| 表现 | 原因 |
+|---|---|
+| 证书数量还是 146、文件名没变 | CN/O/OU 相同 → `subject_hash_old` 相同，文件名必然相同 |
+| 抓包全部失败 / 网页报证书错误 | 站点证书由**新** CA 签发，系统库里却是**旧** CA |
+
+三条恢复路径（v1.2）：
+
+1. 重启手机 —— `service.sh` 解锁后自动比对并覆盖
+2. KernelSU 模块页点「执行」—— 立即同步并重启微信 / 抓包工具
+3. 手动：[docs 第十节](docs/微信抓包证书问题_排查与解决.md) 的免重启修复命令
+
+自检：`sh tools/certdiff.sh <设备地址>`，输出 `SAME` 正常，`DIFF` 需重做。
+**不要只看证书数量判断是否生效，必须比对指纹。**
 
 ---
 
